@@ -20,7 +20,11 @@ $token_life			  = "480"; // How long before getting new TadoToken in seconds 480
 $sleep_time			  = "60"; // in seconds before getting new data. 60secs is min time Tado updates if 2% change (i think)
 
 while (true) #infinite loop until false
-{	
+{
+/*	$today = getdate();
+	$date_string = date("Y-m-d")."T".date("H:i:s"). substr((string)microtime(), 1, 4). 'Z';
+	echo "Date: $date_string\n";	
+*/
 	$new_token = token_age($token_file, $token_life);
 	if ($new_token == true)
 		{
@@ -34,13 +38,42 @@ while (true) #infinite loop until false
 		
 	$home_id = get_me($token_file);
 	$zone_id = get_zone_id($token_file, $home_id);
-	$tado_temp_humidity_setpoint = get_zone_temp($token_file, $home_id, $zone_id);
+	$tado_temp_humidity_setpoint = get_zone_temperature($token_file, $home_id, $zone_id);
 	$tado_temp_humidity = $tado_temp_humidity_setpoint['0'];
 	$tado_setpoint = $tado_temp_humidity_setpoint['1'];
 	echo "HomeID: $home_id - ZoneID: $zone_id - Temp&Humidity: $tado_temp_humidity - Setpoint: $tado_setpoint\n";
 	$DOMO_update = update_device($tado_tempIDX, $nvalue, $tado_temp_humidity, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate);
 	$DOMO_update = update_device($tado_setpointIDX, $nvalue, $tado_setpoint, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate);
-	// $tado_graph_data = get_graph_data($token_file);
+
+	// $tado_temperature_history = get_temperature_history($token_file, $from_date, $to_date, $zone_id); // need to add and format start and end date 2017-02-23T00:00:00.001Z	
+	// $tado_zones = get_tado_zones($token_file, $home_id); // 
+	// $tado_homes = get_homes($token_file, $home_id); // gets info on the home contact, address,  long+lat
+	// $tado_weather = get_home_weather($token_file, $home_id); // gets solar intensity, outside temp, weather state
+	// $tado_devices = get_tado_devices($token_file, $home_id); // gets Tado devices info - serial, firmware, capabilities
+	// $tado_installations = get_tado_installations($token_file, $home_id); // bit like devices	
+	// $tado_users = get_tado_users($token_file, $home_id); // gets info on users	
+	// $tado_mobileDevices = get_tado_mobileDevices($token_file, $home_id); // gets info on mobile devices
+	// ==================================
+	// Some Setpoint manipulations stuff	
+	// ----------------------------------
+	// This will run until next program kicks in
+	// $manual_setpoint = "18";
+	// $overlay_type = "TADO_MODE"; // Until next program
+	// $new_setpoint = put_setpoint_update($token_file, $manual_setpoint, $home_id, $zone_id, $overlay_type, $overlay_timer); // Update Tado setpoint - needs	$manual_setpoint value
+	// ----------------------------------
+	// This will run until user changes/cancels it
+	// $manual_setpoint = "18";
+	// $overlay_type = "MANUAL"; // Until changed by User
+	// $new_setpoint = put_setpoint_update($token_file, $manual_setpoint, $home_id, $zone_id, $overlay_type, $overlay_timer); // Update Tado setpoint - needs	$manual_setpoint value
+	// ----------------------------------
+	// Set a timer before setting reverts back to normalprogram
+	// $manual_setpoint = "18";
+	// $overlay_type = "TIMER"; // Until changed by User
+	// $overlay_timer = 120; // duration in seconds before reverting
+	// $new_setpoint = put_setpoint_update($token_file, $manual_setpoint, $home_id, $zone_id, $overlay_type, $overlay_timer); // Update Tado setpoint - needs	$manual_setpoint value
+	// ----------------------------------	
+	// $end_setpoint_override = end_setpoint_override($token_file, $home_id, $zone_id); // deletes manual setpoint
+	// ==================================
 	sleep($sleep_time);
 }
 
@@ -112,6 +145,174 @@ function get_me($token_file) // Gets the HomeID needed for other stuff
 	return $home_id;
 }
 
+function get_homes($token_file, $home_id) // Gets Homes info
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// Do something
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $zone_id;
+}
+
+function get_home_weather($token_file, $home_id) // Gets the Home Weather
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/weather");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// Do something
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $zone_id;
+}
+
+function get_tado_devices($token_file, $home_id) // Gets the Tado Devices
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/devices");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// Do something
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $zone_id;
+}
+
+function get_tado_installations($token_file, $home_id) // Gets info on the Tado Install
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/installations");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// Do something
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $zone_id;
+}
+
+function get_tado_users($token_file, $home_id) // Gets the Tado Users
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/users");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// Do something
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $zone_id;
+}
+
+function get_tado_mobileDevices($token_file, $home_id) // Gets the mobile devices
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/mobileDevices");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// Do something
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $zone_id;
+}
+
+function get_tado_zones($token_file, $home_id) // Gets info on Tado Zones
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/zones");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// Do something
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $zone_id;
+}
+
 function get_zone_id($token_file, $home_id) // Gets the ZoneID for the HEATING
 {
 	$ch = curl_init();
@@ -136,7 +337,7 @@ function get_zone_id($token_file, $home_id) // Gets the ZoneID for the HEATING
 	return $zone_id;
 }
 
-function get_zone_temp($token_file, $home_id, $zone_id) // Gets Temperature, Humidity and Setpoint for the ZoneID
+function get_zone_temperature($token_file, $home_id, $zone_id) // Gets Temperature, Humidity and Setpoint for the ZoneID
 {
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/zones/$zone_id/state");
@@ -172,18 +373,93 @@ function get_zone_temp($token_file, $home_id, $zone_id) // Gets Temperature, Hum
 	return array ($temp_humidity_value, $setpoint);	
 }
 
-function get_graph_data($token_file) // Gets data that can be used to plot Temperature over time
+function get_temperature_history($token_file, $from_date, $to_date, $zone_id) // Gets data that can be used to plot Temperature over time
 {
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/mobile/1.6/getTemperaturePlotData");
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt($ch, CURLOPT_POSTFIELDS, "fromDate=2017-02-23T00:00:00.001Z&toDate=2017-02-26T14:30:00.000Z&zoneId=1");
+	curl_setopt($ch, CURLOPT_POSTFIELDS, "fromDate=$from_date&toDate=$to_date&zoneId=$zone_id");
 	curl_setopt($ch, CURLOPT_POST, 1);
 
 	$file = file_get_contents($token_file, true);
 	$headers = array();
 	$headers[] = "Authorization: Bearer $file";
 	$headers[] = "Content-Type: application/x-www-form-urlencoded";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	// If you want raw JSON
+	// $json_data = curl_exec($ch);
+	// print($json_data);
+	
+	// If you want to parse JSON->ARRAY
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	
+	// Return the JSON
+	// return $json_data;
+	
+	// Return the Array
+	return array ($parsed_json);
+}
+
+function put_setpoint_update($token_file, $manual_setpoint, $home_id, $zone_id, $overlay_type, $overlay_timer) // Update Tado setpoint
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/zones/$zone_id/overlay");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	if ($overlay_type != "TIMER")
+		{
+		curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"setting\":{\"type\":\"HEATING\",\"power\":\"ON\",\"temperature\":{\"celsius\":$manual_setpoint}},\"termination\":{\"type\":$overlay_type}}");
+		}
+	else
+		{
+		curl_setopt($ch, CURLOPT_POSTFIELDS, "{\"setting\":{\"type\":\"HEATING\",\"power\":\"ON\",\"temperature\":{\"celsius\":$manual_setpoint}},\"termination\":{\"type\":$overlay_type,\"durationInSeconds\":$overlay_timer}}");
+		}
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	$headers[] = "Content-Type: application/json;charset=UTF-8";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	// If you want raw JSON
+	// $json_data = curl_exec($ch);
+	// print($json_data);
+	
+	// If you want to parse JSON->ARRAY
+	$parsed_json = json_decode(curl_exec($ch), true);
+	// print_r($parsed_json);
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	
+	// Return the JSON
+	// return $json_data;
+	
+	// Return the Array
+	return array ($parsed_json);
+}
+
+function end_setpoint_override($token_file, $home_id, $zone_id) // End Manual Control of Heating Setpoint
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/zones/$zone_id/overlay");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
 	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
 	// If you want raw JSON
