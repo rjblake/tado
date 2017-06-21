@@ -3,21 +3,22 @@
 // Only reads info currently and does not update/manipulate setpoint, etc. - this will follow
 
 // Domoticz Info
-$DOMOIPAddress	  = "192.168.XXX.XXX"; // Your Domoticz Server IP Address
-$DOMOPort 			  = "XXXX"; // Your Domoticz Server Port
-$Username 			  = "myDOMOusername"; // Your Domoticz Server username
-$Password 			  = "myDOMOpassword";  // Your Domoticz Server password
-$DOMOUpdate 		  = "1";  // If <> "1" will not update Domoticz
-$nvalue 			    = "0"; // for Domoticz devices
-$tado_tempIDX 		= "nnn"; // Your Domoticz DeviceID for the Tado Temperature/Humidity device
+$DOMOIPAddress	= "192.168.XXX.XXX"; // Your Domoticz Server IP Address
+$DOMOPort 	= "XXXX"; // Your Domoticz Server Port
+$Username 	= "myDOMOusername"; // Your Domoticz Server username
+$Password 	= "myDOMOpassword";  // Your Domoticz Server password
+$DOMOUpdate 	= "1";  // If <> "1" will not update Domoticz
+$nvalue 	= "0"; // for Domoticz devices
+$tado_tempIDX 	= "nnn"; // Your Domoticz DeviceID for the Tado Temperature/Humidity device
 $tado_setpointIDX	= "nnn"; // Your Domoticz DeviceID for the Tado Setpoint device
 
 // Tado Login info
-$username 			  = "my.email@mail.com"; // Your MyTado login name (email)
-$password 			  = "my.tado.password"; // Your MyTado password
-$token_file			  = "/tmp/tadotoken"; // Where the TadoToken file will be written - check for Windows paths
-$token_life			  = "480"; // How long before getting new TadoToken in seconds 480 default allows for default 599 expiry
-$sleep_time			  = "60"; // in seconds before getting new data. 60secs is min time Tado updates if 2% change (i think)
+$username	= "my.email@mail.com"; // Your MyTado login name (email)
+$password	= "my.tado.password"; // Your MyTado password
+$secret		= "wZaRN7rpjn3FoNyF5IFuxg9uMzYJcvOoQ8QWiIqS3hfk6gLhVlG57j5YNoZL2Rtc";
+$token_file	= "/tmp/tadotoken"; // Where the TadoToken file will be written - check for Windows paths
+$token_life	= "480"; // How long before getting new TadoToken in seconds 480 default allows for default 599 expiry
+$sleep_time	= "60"; // in seconds before getting new data. 60secs is min time Tado updates if 2% change (i think)
 
 while (true) #infinite loop until false
 {
@@ -82,7 +83,8 @@ function get_token($username, $password, $token_file) // Gets a token info from 
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/oauth/token");
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt($ch, CURLOPT_POSTFIELDS, "client_id=tado-webapp&grant_type=password&scope=home.user&username=$username&password=$password");
+	// curl_setopt($ch, CURLOPT_POSTFIELDS, "client_id=tado-webapp&grant_type=password&scope=home.user&username=$username&password=$password");
+	curl_setopt($ch, CURLOPT_POSTFIELDS, "client_id=tado-web-app&client_secret=$secret&grant_type=password&scope=home.user&username=$username&password=$password");
 	curl_setopt($ch, CURLOPT_POST, 1);
 
 	$headers = array();
