@@ -1,6 +1,7 @@
 <?php
 // Reads Tado information and Updates Domoticz accordingly. Currently there is no real error handling, so will just stop if there is a problem somewhere
 // Only reads info currently and does not update/manipulate setpoint, etc. - this will follow
+// 2017-06-23: Tado changed API. Now required 'client_secret'
 
 // Domoticz Info
 $DOMOIPAddress	= "192.168.XXX.XXX"; // Your Domoticz Server IP Address
@@ -15,7 +16,7 @@ $tado_setpointIDX	= "nnn"; // Your Domoticz DeviceID for the Tado Setpoint devic
 // Tado Login info
 $username	= "my.email@mail.com"; // Your MyTado login name (email)
 $password	= "my.tado.password"; // Your MyTado password
-$secret		= "wZaRN7rpjn3FoNyF5IFuxg9uMzYJcvOoQ8QWiIqS3hfk6gLhVlG57j5YNoZL2Rtc";
+$secret		= "wZaRN7rpjn3FoNyF5IFuxg9uMzYJcvOoQ8QWiIqS3hfk6gLhVlG57j5YNoZL2Rtc"; // this is the same for all users - it is App specific
 $token_file	= "/tmp/tadotoken"; // Where the TadoToken file will be written - check for Windows paths
 $token_life	= "480"; // How long before getting new TadoToken in seconds 480 default allows for default 599 expiry
 $sleep_time	= "60"; // in seconds before getting new data. 60secs is min time Tado updates if 2% change (i think)
@@ -29,7 +30,7 @@ while (true) #infinite loop until false
 	$new_token = token_age($token_file, $token_life);
 	if ($new_token == true)
 		{
-		get_token($username, $password, $token_file);
+		get_token($username, $password, $secret, $token_file);
 		echo "Fetched new token | ";
 		}
 	else
@@ -78,7 +79,7 @@ while (true) #infinite loop until false
 	sleep($sleep_time);
 }
 
-function get_token($username, $password, $token_file) // Gets a token info from Tado
+function get_token($username, $password, $secret, $token_file) // Gets a token info from Tado
 {
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/oauth/token");
