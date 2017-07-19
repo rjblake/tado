@@ -16,10 +16,11 @@ $tado_setpointIDX	= "nnn"; // Your Domoticz DeviceID for the Tado Setpoint devic
 // Tado Login info
 $username	= "my.email@mail.com"; // Your MyTado login name (email)
 $password	= "my.tado.password"; // Your MyTado password
-$secret		= "wZaRN7rpjn3FoNyF5IFuxg9uMzYJcvOoQ8QWiIqS3hfk6gLhVlG57j5YNoZL2Rtc"; // this is the same for all users - it is App specific
 $token_file	= "/tmp/tadotoken"; // Where the TadoToken file will be written - check for Windows paths
 $token_life	= "480"; // How long before getting new TadoToken in seconds 480 default allows for default 599 expiry
 $sleep_time	= "60"; // in seconds before getting new data. 60secs is min time Tado updates if 2% change (i think)
+$client_secret	= "4HJGRffVR8xb3XdEUQpjgZ1VplJi6Xgw";
+$client_id	= "public-api-preview";
 
 while (true) #infinite loop until false
 {
@@ -30,7 +31,7 @@ while (true) #infinite loop until false
 	$new_token = token_age($token_file, $token_life);
 	if ($new_token == true)
 		{
-		get_token($username, $password, $secret, $token_file);
+		get_token($username, $password, $client_id, $client_secret, $token_file);
 		echo "Fetched new token | ";
 		}
 	else
@@ -79,13 +80,12 @@ while (true) #infinite loop until false
 	sleep($sleep_time);
 }
 
-function get_token($username, $password, $secret, $token_file) // Gets a token info from Tado
+function get_token($username, $password, $client_id, $client_secret, $token_file) // Gets a token info from Tado
 {
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/oauth/token");
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-	// curl_setopt($ch, CURLOPT_POSTFIELDS, "client_id=tado-webapp&grant_type=password&scope=home.user&username=$username&password=$password");
-	curl_setopt($ch, CURLOPT_POSTFIELDS, "client_id=tado-web-app&client_secret=$secret&grant_type=password&scope=home.user&username=$username&password=$password");
+	curl_setopt($ch, CURLOPT_POSTFIELDS, "client_id=$client_id&client_secret=$client_secret&grant_type=password&scope=home.user&username=$username&password=$password");
 	curl_setopt($ch, CURLOPT_POST, 1);
 
 	$headers = array();
@@ -94,8 +94,13 @@ function get_token($username, $password, $secret, $token_file) // Gets a token i
 
 	// either this approach
 	// $result = curl_exec($ch);
+	// echo "Result: $result\n";
+	//
 	$parsed_json = json_decode(curl_exec($ch), true);
 	$token_contents = $parsed_json['access_token'];
+	
+	echo "Token content: $token_contents\n";
+	
 	file_put_contents($token_file, $token_contents);
 
 	if (curl_errno($ch))
@@ -438,7 +443,7 @@ function put_setpoint_update($token_file, $manual_setpoint, $home_id, $zone_id, 
 	
 	// If you want to parse JSON->ARRAY
 	$parsed_json = json_decode(curl_exec($ch), true);
-	// print_r($parsed_json);
+	print_r($parsed_json);
 	
 	if (curl_errno($ch))
 		{
@@ -471,7 +476,7 @@ function end_setpoint_override($token_file, $home_id, $zone_id) // End Manual Co
 	
 	// If you want to parse JSON->ARRAY
 	$parsed_json = json_decode(curl_exec($ch), true);
-	// print_r($parsed_json);
+	print_r($parsed_json);
 	
 	if (curl_errno($ch))
 		{
