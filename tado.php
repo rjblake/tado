@@ -12,6 +12,8 @@ $DOMOUpdate 	= "1";  // If <> "1" will not update Domoticz
 $nvalue 	= "0"; // for Domoticz devices
 $tado_tempIDX 	= "nnn"; // Your Domoticz DeviceID for the Tado Temperature/Humidity device
 $tado_setpointIDX	= "nnn"; // Your Domoticz DeviceID for the Tado Setpoint device
+$tado_heatdemandIDX 	= "nnn"; // Your Domoticz DeviceID for the current Tado Heat Demand
+$tado_anyoneHomeIDX	= "nnn"; // Your Domoticz DeviceID for the Anyone Home? alert
 
 // Tado Login info
 $username	= "my.email@mail.com"; // Your MyTado login name (email)
