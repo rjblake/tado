@@ -44,9 +44,37 @@ while (true) #infinite loop until false
 	$tado_temp_humidity_setpoint = get_zone_temperature($token_file, $home_id, $zone_id);
 	$tado_temp_humidity = $tado_temp_humidity_setpoint['0'];
 	$tado_setpoint = $tado_temp_humidity_setpoint['1'];
-	echo "HomeID: $home_id - ZoneID: $zone_id - Temp&Humidity: $tado_temp_humidity - Setpoint: $tado_setpoint\n";
+	$tado_heating_status = get_heating_status($token_file, $home_id, $zone_id);	
+	echo "HomeID: $home_id - ZoneID: $zone_id - Temp&Humidity: $tado_temp_humidity - Setpoint: $tado_setpoint - Status: $tado_heating_status\n";
+	$anyoneHome = get_anyoneHome($token_file, $home_id);
+	echo "Anyone Home?: $anyoneHome\n";
 	$DOMO_update = update_device($tado_tempIDX, $nvalue, $tado_temp_humidity, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate);
 	$DOMO_update = update_device($tado_setpointIDX, $nvalue, $tado_setpoint, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate);
+	// $DOMO_update = update_switchdevice($tado_heatdemandIDX, $tado_heating_status, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate); // Updates Switch Device to show Tado ON/OFF demand
+	
+	$DOMOurl = "http://$Username:$Password@$DOMOIPAddress:$DOMOPort/json.htm?type=devices&filter=all&order=ID";
+	$DOMOjson_string = file_get_contents($DOMOurl);
+	$DOMOparsed_json = json_decode($DOMOjson_string, true);	
+	$DOMOType = "Data";
+
+	$DOMOanyoneHome_array = array_lookup($DOMOparsed_json, $tado_anyoneHomeIDX, $DOMOType);
+	echo "DomoAnyoneHome: $DOMOanyoneHome_array " . " AnyoneHome: $anyoneHome \n"; 
+		if ($DOMOanyoneHome_array != $anyoneHome)
+			{
+			if ($anyoneHome == "Yes")
+				{
+				$DOMOanyoneHome = update_device($tado_anyoneHomeIDX, 1, $anyoneHome, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate);
+				}
+			elseif ($anyoneHome == "Close")
+				{
+				$DOMOanyoneHome = update_device($tado_anyoneHomeIDX, 2, $anyoneHome, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate);
+				}
+			elseif ($anyoneHome == "No")
+				{
+				$DOMOanyoneHome = update_device($tado_anyoneHomeIDX, 4, $anyoneHome, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate);
+				}
+				
+			}
 
 	// $tado_temperature_history = get_temperature_history($token_file, $from_date, $to_date, $zone_id); // need to add and format start and end date 2017-02-23T00:00:00.001Z	
 	// $tado_zones = get_tado_zones($token_file, $home_id); // 
@@ -99,7 +127,8 @@ function get_token($username, $password, $client_id, $client_secret, $token_file
 	$parsed_json = json_decode(curl_exec($ch), true);
 	$token_contents = $parsed_json['access_token'];
 	
-	echo "Token content: $token_contents\n";
+	// Show content of token
+	// echo "Token content: $token_contents\n";
 	
 	file_put_contents($token_file, $token_contents);
 
@@ -271,6 +300,44 @@ function get_tado_users($token_file, $home_id) // Gets the Tado Users
 		}
 	curl_close ($ch);
 	return $zone_id;
+}
+
+function get_anyoneHome($token_file, $home_id) // Gets the Tado Users
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/users");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	$key = 'relativeDistanceFromHomeFence';
+	$dist_from_home = array_value_recursive($key, $parsed_json);
+	$min_dist = min($dist_from_home);
+
+	if ($min_dist == 0)
+		{
+			$anyoneHome = "Yes";
+		}
+	elseif (($min_dist > 0 && $min_dist < 0.5))
+		{
+			$anyoneHome = "Close";
+		}
+	elseif ($min_dist > 0.5)
+		{
+			$anyoneHome = "No";
+		}
+
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $anyoneHome;
 }
 
 function get_tado_mobileDevices($token_file, $home_id) // Gets the mobile devices
@@ -491,6 +558,33 @@ function end_setpoint_override($token_file, $home_id, $zone_id) // End Manual Co
 	return array ($parsed_json);
 }
 
+function get_heating_status($token_file, $home_id, $zone_id) // Gets Status (Heat Demand On/OFF) for ZoneID
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/api/v2/homes/$home_id/zones/$zone_id/state");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
+
+	$file = file_get_contents($token_file, true);
+	$headers = array();
+	$headers[] = "Authorization: Bearer $file";
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$parsed_json = json_decode(curl_exec($ch), true);
+	$heatdemand = $parsed_json['activityDataPoints']['heatingPower']['percentage'];
+	if ($heatdemand > 0)
+		{$heatingstatus = 'On';}
+	else
+		{$heatingstatus = 'Off';}
+	
+	if (curl_errno($ch))
+		{
+		    echo 'Error:' . curl_error($ch);
+		}
+	curl_close ($ch);
+	return $heatingstatus;	
+}
+
 function update_device($idx, $nvalue, $svalue, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate) // Updates Domoticz Devices
 {
 	if ($DOMOUpdate == 1)
@@ -498,6 +592,18 @@ function update_device($idx, $nvalue, $svalue, $DOMOIPAddress, $DOMOPort, $Usern
 		$ch = curl_init();
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($ch, CURLOPT_URL, "http://$Username:$Password@$DOMOIPAddress:$DOMOPort/json.htm?type=command&param=udevice&idx=$idx&nvalue=$nvalue&svalue=$svalue");
+		curl_exec($ch);
+		curl_close($ch);
+	}
+}
+
+function update_switchdevice($idx, $switchstate, $DOMOIPAddress, $DOMOPort, $Username, $Password, $DOMOUpdate) // Updates Domoticz Devices
+{
+	if ($DOMOUpdate == 1)
+	{	
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_URL, "http://$Username:$Password@$DOMOIPAddress:$DOMOPort/json.htm?type=command&param=switchlight&idx=$idx&switchcmd=$switchstate");
 		curl_exec($ch);
 		curl_close($ch);
 	}
@@ -511,5 +617,26 @@ function findkey($arraytosearch, $field, $value) // Find the array key correspon
         return $key;
    		}
 	return false;
+}
+
+// Function to lookup Domoticz Values from an array
+//
+function array_lookup($parsed_json, $DOMOIDX, $DOMOType)
+{
+	$parsed_json_result = $parsed_json['result'];
+	$key = array_search($DOMOIDX, array_column($parsed_json_result, 'idx'));
+	$DOMO_array = $parsed_json['result'][$key];
+	$array_val = $DOMO_array[$DOMOType];
+	return $array_val;
+}
+
+// This Function returns an array of all values matching a given key
+//
+function array_value_recursive($key, array $arr){
+    $val = array();
+    array_walk_recursive($arr, function($v, $k) use($key, &$val){
+        if($k == $key) array_push($val, $v);
+    });
+    return count($val) > 1 ? $val : array_pop($val);
 }
 ?>
