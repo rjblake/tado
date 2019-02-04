@@ -113,7 +113,7 @@ while (true) #infinite loop until false
 function get_token($username, $password, $client_id, $client_secret, $token_file) // Gets a token info from Tado
 {
 	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, "https://my.tado.com/oauth/token");
+	curl_setopt($ch, CURLOPT_URL, "https://auth.tado.com/oauth/token");
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 	curl_setopt($ch, CURLOPT_POSTFIELDS, "client_id=$client_id&client_secret=$client_secret&grant_type=password&scope=home.user&username=$username&password=$password");
 	curl_setopt($ch, CURLOPT_POST, 1);
